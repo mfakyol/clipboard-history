@@ -1,4 +1,4 @@
-// Manual release: build the Windows installer and macOS DMGs + create the GitHub Release.
+// Manual release: run the tests, build the Windows installer and macOS DMGs + create the GitHub Release.
 // Run on macOS: the Windows installer cross-builds there, the DMGs need a Mac.
 // Usage: npm run release            -> tags v<package.json version>
 //        npm run release -- --dry   -> local steps only, GitHub untouched
@@ -31,7 +31,10 @@ if (!dry) {
     fail('gh CLI is not signed in: gh auth login')
 }
 
-// 2) Package
+// 2) Verify
+run('npm test')
+
+// 3) Package
 run('npm run dist -- --win --mac')
 
 const assets = [
@@ -49,7 +52,7 @@ if (dry) {
   process.exit(0)
 }
 
-// 3) Tag + Release
+// 4) Tag + Release
 run(`git tag -a ${tag} -m "${tag}"`)
 run(`git push origin main ${tag}`)
 const notesFile = path.join(ROOT, 'release', 'release-notes.md')

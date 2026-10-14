@@ -18,4 +18,6 @@ export default defineConfig({
   ],
   server: { host: '127.0.0.1', port: 5173, strictPort: true },
   build: { outDir: 'dist', emptyOutDir: true },
+  // Unit tests for the pure logic (search folding, the history store); see tests/.
+  test: { include: ['tests/**/*.test.js'], environment: 'node' },
 });
