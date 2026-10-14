@@ -29,3 +29,16 @@ Password managers mark sensitive copies with the clipboard formats `ExcludeClipb
 ## Search
 
 `fold()` maps every UTF-16 unit to exactly one unit (lowercase, accents removed, `İ/I/ı → i`). Match positions in the folded text are therefore also valid in the original text, which makes highlighting trivial. A plain `toLowerCase()` would break this, because `'İ'.toLowerCase()` is two characters long.
+
+## macOS
+
+The same line protocol is served by a small Swift program (`electron/mac/ClipHelper.swift`), compiled into a universal binary at build time and shipped in the app's Resources. Window handles become app pids.
+
+- **Never stealing focus:** the palette is an `NSPanel` with the non-activating style (`type: 'panel'`), so clicking it doesn't activate the app. Clicks outside are reported by a global `NSEvent` monitor.
+- **Opening under the focused field:** the Accessibility API gives the focused element's frame and, for big editors, the caret (`AXBoundsForRange` on the selected range). Chromium-based apps build their accessibility tree only when asked, which `AXManualAccessibility` does.
+- **Pasting:** a synthetic `Cmd+V` via `CGEvent`. Focus is handed back by setting `AXFrontmost` on the target app, because macOS 14+ doesn't let a background process activate another app.
+- **Change detection:** `NSPasteboard.changeCount`.
+- **Privacy:** password managers mark copies with `org.nspasteboard.ConcealedType` / `TransientType`; those are skipped.
+
+All of this needs the Accessibility permission. macOS caches it per process, so the helper is restarted once the permission is granted. Without it the app still records history and puts the chosen item on the clipboard, but it can't paste it for you and opens the palette at the mouse pointer.
+

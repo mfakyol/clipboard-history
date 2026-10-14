@@ -8,11 +8,15 @@
 //   focus <h>  -> give focus back to window <h>
 //   paste <h>  -> focus window <h>, wait for modifiers to be released, send Ctrl+V
 //   watch 1|0  -> report mouse clicks while the palette is open (see ClickWatch)
+// On macOS the same protocol is served by a small Swift binary instead (mac/ClipHelper.swift), where
+// window handles are app pids.
 // Protocol: one command line in, exactly one response line out. Lines starting with "!" are
 // unsolicited events:
 //   !m <x> <y>  mouse button pressed while watching (physical px)
 
 const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 const SCRIPT = String.raw`
 $ErrorActionPreference = 'Stop'
@@ -222,19 +226,35 @@ class WinHelper {
     this.proc = null;
   }
 
+  spawnProcess() {
+    if (process.platform === 'darwin') {
+      const bin = macHelperPath();
+      if (!bin) {
+        console.error('[winhelper] clip-helper not found; run: node scripts/build-mac-helper.cjs');
+        return null;
+      }
+      return spawn(bin, [], { stdio: ['pipe', 'pipe', 'pipe'] });
+    }
+    if (process.platform !== 'win32') return null;
+    const encoded = Buffer.from(SCRIPT, 'utf16le').toString('base64');
+    return spawn(
+      'powershell.exe',
+      ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded],
+      { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+  }
+
   start(timeoutMs = 15000) {
-    if (process.platform !== 'win32') return Promise.resolve(false);
+    this.buffer = '';
+    this.proc = this.spawnProcess();
+    if (!this.proc) return Promise.resolve(false);
     return new Promise((resolve) => {
-      const encoded = Buffer.from(SCRIPT, 'utf16le').toString('base64');
-      this.proc = spawn(
-        'powershell.exe',
-        ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded],
-        { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }
-      );
 
       const timer = setTimeout(() => resolve(false), timeoutMs);
       this.proc.stdout.setEncoding('utf8');
+      const proc = this.proc;
       this.proc.stdout.on('data', (chunk) => {
+        if (this.proc !== proc) return;
         this.buffer += chunk;
         let nl;
         while ((nl = this.buffer.indexOf('\n')) !== -1) {
@@ -261,6 +281,7 @@ class WinHelper {
         if (text && !text.includes('CLIXML') && !text.startsWith('<Objs')) console.error('[winhelper]', text);
       });
       this.proc.on('exit', () => {
+        if (this.proc !== proc) return; // an older helper, replaced by stop() + start()
         this.ready = false;
         clearTimeout(timer);
         resolve(false);
@@ -279,11 +300,22 @@ class WinHelper {
   }
 
   stop() {
+    this.ready = false;
+    for (const p of this.pending.splice(0)) p.reject(new Error('helper stopped'));
     if (this.proc) {
       this.proc.stdin.end();
       this.proc.kill();
     }
   }
+}
+
+// Packaged: Contents/Resources/clip-helper (extraResources). Development: build/mac/clip-helper.
+function macHelperPath() {
+  const candidates = [
+    path.join(process.resourcesPath || '', 'clip-helper'),
+    path.join(__dirname, '..', 'build', 'mac', 'clip-helper'),
+  ];
+  return candidates.find((p) => fs.existsSync(p));
 }
 
 module.exports = { WinHelper };

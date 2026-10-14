@@ -6,11 +6,14 @@ directories:
 files:
   - dist/**
   - electron/**
+  - "!electron/mac/**" # Swift source; the compiled helper ships via extraResources
   - package.json
 asar: true
 win:
   target:
-    - nsis
+    - target: nsis
+      arch:
+        - x64
   icon: resources/icon.png
 nsis:
   oneClick: false
@@ -18,3 +21,21 @@ nsis:
   allowToChangeInstallationDirectory: true
   runAfterFinish: true
   createDesktopShortcut: true
+mac:
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  icon: resources/icon.png
+  category: public.app-category.productivity
+  extraResources:
+    - from: build/mac/clip-helper
+      to: clip-helper
+  extendInfo:
+    LSUIElement: true # menu bar app, no Dock icon
+  # No Developer ID: ad-hoc sign so Apple Silicon runs it; not notarized
+  identity: "-"
+  hardenedRuntime: false
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}

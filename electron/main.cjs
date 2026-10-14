@@ -12,6 +12,8 @@ const {
   protocol,
   net,
   shell,
+  systemPreferences,
+  Notification,
 } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -22,8 +24,12 @@ const { createTrayIcon } = require('./icon.cjs');
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 const POLL_MS = 300;
-const WIN_W = 820;
-const WIN_H = 540;
+const IS_MAC = process.platform === 'darwin';
+// macOS screens have fewer points than a scaled Windows desktop has DIPs, so the palette is smaller there
+const WIN_W = IS_MAC ? 680 : 820;
+const WIN_H = IS_MAC ? 440 : 540;
+// CLIP_DEBUG=1 logs how the palette position was found
+const debug = process.env.CLIP_DEBUG ? (...args) => console.log('[debug]', ...args) : () => {};
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -77,6 +83,8 @@ function createWindow() {
     alwaysOnTop: true,
     hasShadow: false,
     focusable: false, // browse mode: never activated (WS_EX_NOACTIVATE)
+    // macOS: a non-activating NSPanel, so a click on it doesn't activate this app either
+    ...(IS_MAC ? { type: 'panel', acceptFirstMouse: true } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -85,6 +93,8 @@ function createWindow() {
       spellcheck: false,
     },
   });
+
+  if (IS_MAC) win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
   if (DEV_URL) win.loadURL(DEV_URL);
   else win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
@@ -132,7 +142,7 @@ async function startSearch() {
   win.setFocusable(true);
   win.focus();
   // The hotkey/click came to us, so focus() is normally allowed; if Windows refuses, force it.
-  if (!win.isFocused() && helper.ready) {
+  if (!win.isFocused() && helper.ready && !IS_MAC) {
     await helper.cmd(`focus ${win.getNativeWindowHandle().readBigInt64LE()}`).catch(() => {});
   }
   win.webContents.send('palette:search-mode');
@@ -161,7 +171,7 @@ async function restorePrevFocus() {
 // Clicks reported by the helper while browsing: a click outside the card closes the palette.
 function onHelperEvent([type, x, y]) {
   if (type !== 'm' || !win.isVisible() || searching) return;
-  const p = screen.screenToDipPoint({ x: Number(x), y: Number(y) });
+  const p = toDip({ x: Number(x), y: Number(y) });
   const b = win.getBounds();
   const inside = p.x >= b.x + PAD && p.x < b.x + b.width - PAD && p.y >= b.y + PAD && p.y < b.y + b.height - PAD;
   if (!inside) hidePalette();
@@ -178,6 +188,9 @@ function watchForeground() {
 
 const SMALL_FIELD = 160; // DIP; taller focused elements are editors/documents, not input boxes
 
+// The Windows helper reports physical pixels; the macOS one already reports points (= DIP).
+const toDip = (p) => (IS_MAC ? p : screen.screenToDipPoint(p));
+
 const parseNums = (reply) => (reply === 'none' ? null : reply.split(',').map(Number));
 
 // Where the palette was summoned, as an anchor box { x, top, bottom } in DIP. In order:
@@ -186,23 +199,28 @@ const parseNums = (reply) => (reply === 'none' ? null : reply.split(',').map(Num
 //  3. the mouse pointer.
 async function summonPoint() {
   if (helper.ready) {
-    const rect = parseNums(await helper.cmd('focusrect').catch(() => 'none'));
+    const rectReply = await helper.cmd('focusrect').catch((e) => 'error: ' + e.message);
+    debug('focusrect', rectReply);
+    const rect = parseNums(rectReply);
     if (rect && rect.every(Number.isFinite)) {
       const [x, y, w, h] = rect;
-      const top = screen.screenToDipPoint({ x, y });
-      const bottom = screen.screenToDipPoint({ x: x + w, y: y + h });
+      const top = toDip({ x, y });
+      const bottom = toDip({ x: x + w, y: y + h });
       if (bottom.y - top.y <= SMALL_FIELD) return { x: top.x, top: top.y, bottom: bottom.y };
     }
 
-    const caret = parseNums(await helper.cmd('caret').catch(() => 'none'));
+    const caretReply = await helper.cmd('caret').catch((e) => 'error: ' + e.message);
+    debug('caret', caretReply);
+    const caret = parseNums(caretReply);
     if (caret && caret.every(Number.isFinite)) {
       const [x, y, h] = caret;
-      const top = screen.screenToDipPoint({ x, y });
-      const bottom = screen.screenToDipPoint({ x, y: y + Math.min(Math.max(h, 0), 80) });
+      const top = toDip({ x, y });
+      const bottom = toDip({ x, y: y + Math.min(Math.max(h, 0), 80) });
       return { x: top.x, top: top.y, bottom: bottom.y };
     }
   }
   const p = screen.getCursorScreenPoint();
+  debug('mouse fallback', p, 'helper ready', helper.ready);
   return { x: p.x, top: p.y, bottom: p.y + 16 };
 }
 
@@ -347,13 +365,29 @@ async function paste(id, { plain = false } = {}) {
 
 // ---------- tray ----------
 
+// "CommandOrControl+Shift+V" -> "Ctrl+Shift+V" on Windows, "⌘⇧V" on macOS
+function accelLabel(accel) {
+  if (!IS_MAC) return accel.replace(/CommandOrControl|CmdOrCtrl/g, 'Ctrl');
+  const symbols = { commandorcontrol: '⌘', cmdorctrl: '⌘', command: '⌘', cmd: '⌘', control: '⌃', ctrl: '⌃', shift: '⇧', alt: '⌥', option: '⌥' };
+  return accel.split('+').map((k) => symbols[k.toLowerCase()] || k).join('');
+}
+
+// Pasting sends Cmd+V as a synthetic key press and placing the palette reads the focused field;
+// macOS allows both only to apps granted Accessibility access.
+const needsAccessibility = () => IS_MAC && !systemPreferences.isTrustedAccessibilityClient(false);
+const openAccessibilitySettings = () =>
+  shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
+
 function refreshTray() {
-  const accel = store.settings.shortcut.replace('CommandOrControl', 'Ctrl');
+  const accel = accelLabel(store.settings.shortcut);
   tray.setImage(createTrayIcon({ paused }));
   tray.setToolTip(paused ? 'Clipboard History (paused)' : `Clipboard History — ${accel}`);
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: `Open history\t${accel}`, click: showPalette },
+      ...(needsAccessibility()
+        ? [{ label: 'Allow Accessibility access (needed to paste)…', click: openAccessibilitySettings }]
+        : []),
       { type: 'separator' },
       {
         label: 'Pause recording',
@@ -365,7 +399,7 @@ function refreshTray() {
         },
       },
       {
-        label: 'Start with Windows',
+        label: IS_MAC ? 'Open at login' : 'Start with Windows',
         type: 'checkbox',
         checked: app.getLoginItemSettings().openAtLogin,
         click: (mi) => app.setLoginItemSettings({ openAtLogin: mi.checked }),
@@ -396,10 +430,10 @@ function registerShortcut() {
   globalShortcut.unregisterAll();
   const ok = bindShortcut();
   if (!ok && tray) {
-    tray.displayBalloon({
-      title: 'Clipboard History',
-      content: `${store.settings.shortcut} is used by another app. Change "shortcut" in settings.`,
-    });
+    const title = 'Clipboard History';
+    const content = `${accelLabel(store.settings.shortcut)} is used by another app. Change "shortcut" in settings.`;
+    if (IS_MAC) new Notification({ title, body: content }).show();
+    else tray.displayBalloon({ title, content });
   }
 }
 
@@ -418,7 +452,13 @@ ipcMain.on('palette:search', startSearch);
 app.on('second-instance', showPalette);
 
 app.whenReady().then(async () => {
-  app.setAppUserModelId('com.mfakyol.clipboardhistory');
+  if (IS_MAC) {
+    app.dock?.hide(); // packaged builds set LSUIElement; this covers development
+    // Shows the system prompt once; the tray menu links to the setting until it's granted.
+    systemPreferences.isTrustedAccessibilityClient(true);
+  } else {
+    app.setAppUserModelId('com.mfakyol.clipboardhistory');
+  }
 
   store = new Store(app.getPath('userData'), (items) => {
     if (win) win.webContents.send('history:changed', items);
@@ -435,6 +475,21 @@ app.whenReady().then(async () => {
   tray.on('click', showPalette);
   refreshTray();
   registerShortcut();
+
+  if (IS_MAC) {
+    // No event for a granted permission: refresh the tray menu once it changes.
+    let lacking = needsAccessibility();
+    const timer = setInterval(() => {
+      if (needsAccessibility() === lacking) return;
+      lacking = !lacking;
+      refreshTray();
+      if (lacking) return;
+      clearInterval(timer);
+      // macOS caches the permission per process: restart the helper so it can use it.
+      helper.stop();
+      helper.start();
+    }, 2000);
+  }
 
   helper.onEvent = onHelperEvent;
   await helper.start();

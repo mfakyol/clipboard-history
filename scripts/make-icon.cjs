@@ -1,11 +1,11 @@
-// Generates the 256x256 app icon (resources/icon.png) with no external dependencies:
+// Generates the 1024x1024 app icon (resources/icon.png; macOS needs at least 512x512) with no external dependencies:
 // a white clipboard on an indigo rounded square, anti-aliased with signed distance fields.
 // Same glyph as the tray icon drawn at runtime in electron/icon.cjs.
 const fs = require('fs')
 const zlib = require('zlib')
 const path = require('path')
 
-const SIZE = 256
+const SIZE = 1024
 const S = SIZE / 32 // the glyph is designed on a 32px grid
 
 function roundRectDistance(px, py, [x0, y0, x1, y1], r) {
@@ -16,7 +16,7 @@ function roundRectDistance(px, py, [x0, y0, x1, y1], r) {
 
 const grid = (rect, r, color) => ({ rect: rect.map((v) => v * S), r: r * S, color })
 const layers = [
-  { rect: [0, 0, SIZE, SIZE], r: 56, color: [99, 102, 241] }, // background tile
+  { rect: [0, 0, SIZE, SIZE], r: 7 * S, color: [99, 102, 241] }, // background tile
   grid([7.5, 7, 24.5, 28.5], 3, [255, 255, 255]), // board
   grid([11.5, 4.5, 20.5, 10], 2, [199, 210, 254]), // clip
   grid([11, 14, 21, 15.75], 0.875, [99, 102, 241]), // text lines

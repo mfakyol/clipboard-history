@@ -333,7 +333,7 @@ export default function App() {
               <path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4" />
             </svg>
             Search
-            <kbd>Ctrl F</kbd>
+            <kbd>{api.platform === 'darwin' ? '⌘F' : 'Ctrl F'}</kbd>
           </button>
         )}
       </header>

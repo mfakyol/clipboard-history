@@ -7,6 +7,7 @@ const on = (channel, cb) => {
 };
 
 contextBridge.exposeInMainWorld('clip', {
+  platform: process.platform,
   getHistory: () => ipcRenderer.invoke('history:get'),
   paste: (id, opts) => ipcRenderer.invoke('history:paste', id, opts),
   togglePin: (id) => ipcRenderer.invoke('history:pin', id),

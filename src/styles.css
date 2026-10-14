@@ -331,7 +331,7 @@ mark {
 
 .preview-text {
   margin: 0;
-  font: 12.5px/1.55 'Cascadia Code', Consolas, monospace;
+  font: 12.5px/1.55 'Cascadia Code', Consolas, ui-monospace, Menlo, monospace;
   font-variant-ligatures: none; /* show exactly what was copied: no => to ⇒ */
   white-space: pre-wrap;
   word-break: break-word;
