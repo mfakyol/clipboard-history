@@ -1,7 +1,15 @@
 // Search folding: case- and accent-insensitive, Turkish-aware, and length-preserving
 // (each UTF-16 unit maps to exactly one unit) so match indices map straight back to the original
 // string for highlighting. "sifre" finds "Şifre", "istanbul" finds "İSTANBUL", "cafe" finds "café".
-const SPECIAL = { İ: 'i', I: 'i', ı: 'i', ß: 's', æ: 'a', ø: 'o', ł: 'l', đ: 'd' };
+// Letters NFD can't strip to a base letter, in both cases (tests/search.test.js covers them).
+const SPECIAL = {
+  İ: 'i', I: 'i', ı: 'i',
+  ß: 's', ẞ: 's',
+  æ: 'a', Æ: 'a',
+  ø: 'o', Ø: 'o',
+  ł: 'l', Ł: 'l',
+  đ: 'd', Đ: 'd',
+};
 
 export function fold(str) {
   let out = '';
