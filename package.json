@@ -12,7 +12,9 @@
     "start": "vite build && electron .",
     "icon": "node scripts/make-icon.cjs",
     "dist": "node scripts/dist.cjs",
-    "release": "node scripts/release.cjs"
+    "release": "node scripts/release.cjs",
+    "screenshot": "electron scripts/screenshot.cjs",
+    "demo": "electron scripts/demo-gif.cjs"
   },
   "dependencies": {
     "react": "^19.3.0",
@@ -24,6 +26,7 @@
     "cross-env": "^10.1.0",
     "electron": "^44.7.2",
     "electron-builder": "^26.15.3",
+    "gifenc": "^1.0.3",
     "vite": "^8.3.4",
     "wait-on": "^9.5.1"
   },

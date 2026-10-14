@@ -8,6 +8,12 @@ Clipboard history for Windows. It remembers everything you copy (text, links, co
 
 **[⬇ Download for Windows](https://github.com/mfakyol/clipboard-history/releases/latest)**
 
+![Pasting a link, a screenshot and a searched code snippet into a notes editor](docs/demo.gif)
+
+| Light theme | Dark theme |
+|---|---|
+| ![History palette, light theme](docs/screenshots/light.png) | ![History palette, dark theme](docs/screenshots/dark.png) |
+
 ## Features
 
 - **Opens where you are:** right under the focused input, or at the text cursor in editors. It works in browsers too
@@ -86,6 +92,8 @@ npm install
 npm run dev       # run with hot reload
 npm run dist      # build the Windows installer into release/
 npm run release   # build, tag and publish a GitHub Release (-- --dry for local only)
+npm run build && npm run demo         # regenerate docs/demo.gif
+npm run build && npm run screenshot   # regenerate docs/screenshots/
 ```
 
 ## License
