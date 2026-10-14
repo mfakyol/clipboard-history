@@ -9,6 +9,8 @@ files:
   - "!electron/mac/**" # Swift source; the compiled helper ships via extraResources
   - package.json
 asar: true
+asarUnpack:
+  - electron/winhelper.cs # compiled at runtime by PowerShell, which can't read inside app.asar
 win:
   target:
     - target: nsis
