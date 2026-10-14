@@ -2,6 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/mfakyol/clipboard-history?label=release&color=6366f1)](https://github.com/mfakyol/clipboard-history/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-0078d4)](https://github.com/mfakyol/clipboard-history/releases/latest)
+[![Tests](https://github.com/mfakyol/clipboard-history/actions/workflows/test.yml/badge.svg)](https://github.com/mfakyol/clipboard-history/actions/workflows/test.yml)
 [![License](https://img.shields.io/github/license/mfakyol/clipboard-history?color=64748b)](LICENSE)
 
 Clipboard history for Windows and macOS. It remembers everything you copy, and `Ctrl+Shift+V` (`⌘⇧V` on macOS) opens it right under the field you're typing in, without taking focus from it. Click an item and it's pasted there.
@@ -34,6 +35,7 @@ Clipboard history for Windows and macOS. It remembers everything you copy, and `
 | Build | Vite 8 |
 | Windows integration | PowerShell helper hosting C# (Win32, UI Automation), no native modules |
 | macOS integration | Small Swift helper (Accessibility API, CGEvent, NSPasteboard), built as a universal binary |
+| Testing | Vitest (56 tests: search folding, history store), run on Linux, Windows and macOS in CI |
 | Packaging | electron-builder (NSIS installer, DMG) |
 
 ## Getting started
@@ -68,6 +70,7 @@ Pause recording, start at login and clear history are in the tray menu. The shor
 ```bash
 npm install
 npm run dev        # run with hot reload (builds the macOS helper first on a Mac)
+npm test           # unit tests
 npm run dist       # build the Windows installer into release/
 npm run dist:mac   # build the macOS DMGs into release/ (needs Xcode command line tools)
 ```
