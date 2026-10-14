@@ -8,6 +8,8 @@ files:
   - electron/**
   - package.json
 asar: true
+asarUnpack:
+  - electron/winhelper.cs # compiled at runtime by PowerShell, which can't read inside app.asar
 win:
   target:
     - nsis
