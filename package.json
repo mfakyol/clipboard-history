@@ -2,29 +2,17 @@
   "name": "clipboard-history",
   "productName": "Clipboard History",
   "version": "0.1.0",
-  "description": "Keyboard-first clipboard history for Windows. Ctrl+Shift+V, type, Enter.",
+  "description": "Clipboard history for Windows that opens at your text cursor without stealing focus",
   "main": "electron/main.cjs",
+  "private": true,
+  "author": "Fatih Akyol",
   "scripts": {
     "dev": "concurrently -k -n vite,electron -c cyan,magenta \"vite\" \"wait-on tcp:127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
     "build": "vite build",
     "start": "vite build && electron .",
-    "dist": "vite build && electron-builder --win"
-  },
-  "build": {
-    "appId": "com.mfakyol.clipboardhistory",
-    "productName": "Clipboard History",
-    "files": [
-      "dist/**",
-      "electron/**",
-      "package.json"
-    ],
-    "win": {
-      "target": "nsis"
-    },
-    "nsis": {
-      "oneClick": true,
-      "perMachine": false
-    }
+    "icon": "node scripts/make-icon.cjs",
+    "dist": "node scripts/dist.cjs",
+    "release": "node scripts/release.cjs"
   },
   "dependencies": {
     "react": "^19.3.0",
@@ -38,5 +26,6 @@
     "electron-builder": "^26.15.3",
     "vite": "^8.3.4",
     "wait-on": "^9.5.1"
-  }
+  },
+  "license": "MIT"
 }

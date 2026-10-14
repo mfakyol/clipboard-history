@@ -1,0 +1,20 @@
+appId: com.mfakyol.clipboardhistory
+productName: Clipboard History
+directories:
+  buildResources: resources
+  output: release # dist/ is Vite's renderer output; npm run dist stages outside the project (scripts/dist.cjs)
+files:
+  - dist/**
+  - electron/**
+  - package.json
+asar: true
+win:
+  target:
+    - nsis
+  icon: resources/icon.png
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  runAfterFinish: true
+  createDesktopShortcut: true
